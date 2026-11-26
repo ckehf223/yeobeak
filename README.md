@@ -35,9 +35,9 @@ npm test
 - 이 도메인은 여백 홈페이지 전용입니다. SMOA 업무 사이트와 연결하지 않습니다.
 - 신청 전송 환경 변수는 아직 설정되지 않았습니다. 홈페이지 배포 성공과 실제 접수 API·구글시트 저장 성공은 별도로 검증합니다.
 
-## 검색엔진 설정 — 2026-11-27 작업 중
+## 검색엔진 설정 — 2026-11-27 적용 완료
 
-대표 주소는 `https://yeo-baek.co.kr/`입니다. 다음 설정은 GitHub `main`에 반영되어 Pages 배포가 성공하면 공개 사이트에 적용됩니다.
+대표 주소는 `https://yeo-baek.co.kr/`입니다. SEO 변경 커밋 `9acbbd1`을 GitHub `main`에 반영했고 Cloudflare Pages 자동 배포가 성공했습니다. 아래 설정은 공개 사이트에서 확인했습니다.
 
 - 홈페이지 제목·설명, 대표 주소 `canonical`, Open Graph와 `WebSite` JSON-LD.
 - `public/robots.txt`: 홈페이지와 화면 리소스 수집 허용, API 경로 수집 제외, 사이트맵 위치 명시.
@@ -46,9 +46,9 @@ npm test
 - Googlebot/Yeti 이름으로 요청한 공개 홈페이지가 모두 HTTP 200을 반환하며 `X-Robots-Tag` 차단 헤더가 없음을 확인했습니다. 이는 실제 검색엔진의 수집·색인 완료를 뜻하지 않습니다.
 - 로컬의 canonical/JSON-LD/사이트맵 정합성, robots.txt·사이트맵 HTTP 응답 및 MIME 유형, 기존 신청 처리 가상 검사 7개를 확인했습니다.
 
-계정별 등록은 Google Search Console과 네이버 서치어드바이저 로그인 후 진행해야 합니다. Chrome에서 두 서비스 로그인 확인 후 Google 도메인 소유권은 DNS TXT로 확인을 완료했습니다. 네이버 소유권 확인 태그는 홈페이지 소스에 추가했습니다. 사이트맵 제출은 배포 후 진행합니다. 소유권 확인용 HTML/DNS 값은 해당 계정에서 받은 정확한 값을 사용하며 임의 값을 넣지 않습니다.
+Chrome에서 Google과 네이버 사이트 소유권 확인을 완료했습니다. Google은 DNS TXT 인증을 사용하고, 네이버는 홈페이지 HTML 메타 태그를 사용합니다. 두 서비스 모두 사이트맵 제출을 마쳤습니다. Google 사이트맵은 처리 완료·발견 페이지 1개를 확인했고 홈페이지 색인 요청도 접수됐습니다. 네이버에도 홈페이지 수집 요청 내역이 등록됐습니다. 소유권 확인용 DNS TXT와 HTML 태그는 삭제하지 않습니다.
 
-배포 후 `https://yeo-baek.co.kr/robots.txt`와 `https://yeo-baek.co.kr/sitemap.xml`을 확인하고, 두 검색 도구에 `https://yeo-baek.co.kr/sitemap.xml`을 제출합니다. Google에는 도메인 속성 `yeo-baek.co.kr`을 DNS로 확인하면 HTTPS 및 www 범위를 함께 관리할 수 있습니다. 네이버에는 대표 주소 `https://yeo-baek.co.kr`을 등록합니다. 소유권 확인값은 유지해야 합니다. 검색 반영 시점이나 순위를 보장하지 않습니다.
+공개 `https://yeo-baek.co.kr/robots.txt`와 `https://yeo-baek.co.kr/sitemap.xml`의 HTTP 200 및 올바른 Content-Type을 확인했습니다. 없는 주소가 HTTP 404를 반환하는 것도 확인했습니다. 두 검색 도구에 제출한 주소는 `https://yeo-baek.co.kr/sitemap.xml`입니다. Google에는 도메인 속성 `yeo-baek.co.kr`을 DNS로 확인하면 HTTPS 및 www 범위를 함께 관리할 수 있습니다. 네이버에는 대표 주소 `https://yeo-baek.co.kr`을 등록합니다. 소유권 확인값은 유지해야 합니다. 검색 반영 시점이나 순위를 보장하지 않습니다.
 
 공식 안내: [Google 소유권 확인](https://support.google.com/webmasters/answer/9008080), [Google 사이트맵](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap), [네이버 사이트 등록](https://searchadvisor.naver.com/guide/faq-start-register).
 
