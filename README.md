@@ -19,11 +19,38 @@ npm test
 
 1. 이 폴더의 변경을 GitHub의 `ckehf223/yeobeak` 저장소 `main` 브랜치에 올립니다.
 2. [Cloudflare 대시보드](https://dash.cloudflare.com/)의 **Workers & Pages → Create application → Pages → Connect to Git**에서 GitHub에 연결합니다. 저장소 목록에서 `ckehf223/yeobeak`를 선택합니다.
-3. 프로젝트 이름은 `yeobeak`, Production branch는 `main`으로 설정합니다. Framework preset은 **None**, Build command는 **공란**, Build output directory는 **`public`**, Root directory는 **공란(저장소 루트)**으로 설정합니다.
+3. 프로젝트 이름은 `yeobeak`, Production branch는 `main`으로 설정합니다. Framework preset은 **None**, Build command는 **`npm test`**, Build output directory는 **`public`**, Root directory는 **공란(저장소 루트)**으로 설정합니다. 별도 번들링이 필요 없는 HTML/CSS/JS 사이트이므로 기존 7개 검사를 통과하면 Pages가 정적 파일과 Functions를 배포합니다. 검사 실패 시 새 버전은 배포하지 않습니다.
 4. **Save and Deploy** 후 Pages가 표시한 `.pages.dev` 주소를 열어 화면과 링크를 확인합니다. 신청 함수는 저장소 루트의 `functions/api/application.js`에서 자동으로 배포됩니다.
 5. 사용하려는 도메인은 프로젝트의 **Custom domains → Set up a domain**에서 연결합니다. 루트 도메인 연결에는 Cloudflare 네임서버가 필요합니다. 기존 사이트 주소로 교체하는 경우에는 Pages 주소에서 확인한 뒤 도메인을 전환합니다.
 
 [GitHub 연동 공식 안내](https://developers.cloudflare.com/pages/get-started/git-integration/) · [사용자 지정 도메인 공식 안내](https://developers.cloudflare.com/pages/configuration/custom-domains/)
+
+### 현재 연결 상태 — 2026-11-26
+
+- GitHub `ckehf223/yeobeak` → Cloudflare Pages `yeobeak` 연결 및 `main` 자동 배포가 활성화되어 있습니다. `main`에 push하면 Cloudflare가 자동으로 검사하고 배포합니다. GitHub Actions와 별도 배포 토큰은 필요하지 않습니다.
+- 공개 홈페이지 주소: https://yeobeak.pages.dev/
+- 운영 빌드 명령을 `npm test`로 저장했으며 로컬 검사 7개를 통과했습니다. 기존 커밋 `3169c2a`를 새 설정으로 다시 배포해 Cloudflare에서도 검사 7개 통과 및 배포 성공을 확인했습니다(배포 ID `dd73d93e-1b43-44ed-963e-489c6be18ccc`).
+- `www.yeo-baek.co.kr`은 Pages에서 활성/SSL 사용 상태이며 HTTPS 200 응답을 확인했습니다. 루트 도메인은 아래 별도 진행 상태를 참고하세요.
+- 2026-11-27 사용자 요청으로 루트 연결을 추가 진행했습니다. Cloudflare 무료 DNS에 루트와 www CNAME → `yeobeak.pages.dev`를 준비하고, HostingKR 네임서버를 `buck.ns.cloudflare.com` / `carrera.ns.cloudflare.com`으로 변경했습니다. 네임서버 전파·Cloudflare 영역 활성화·Pages 루트 사용자 지정 도메인 등록을 마쳤으며, 루트와 www 양쪽 모두 HTTPS 200 응답 및 여백 HTML 본문을 확인했습니다. 앞으로 DNS 레코드는 Cloudflare에서 관리하며 등록·갱신은 HostingKR에서 합니다.
+- 이 도메인은 여백 홈페이지 전용입니다. SMOA 업무 사이트와 연결하지 않습니다.
+- 신청 전송 환경 변수는 아직 설정되지 않았습니다. 홈페이지 배포 성공과 실제 접수 API·구글시트 저장 성공은 별도로 검증합니다.
+
+## 검색엔진 설정 — 2026-11-27 작업 중
+
+대표 주소는 `https://yeo-baek.co.kr/`입니다. 다음 설정은 GitHub `main`에 반영되어 Pages 배포가 성공하면 공개 사이트에 적용됩니다.
+
+- 홈페이지 제목·설명, 대표 주소 `canonical`, Open Graph와 `WebSite` JSON-LD.
+- `public/robots.txt`: 홈페이지와 화면 리소스 수집 허용, API 경로 수집 제외, 사이트맵 위치 명시.
+- `public/sitemap.xml`: 실제 공개 페이지인 루트 주소 한 개만 포함합니다. 페이지 내부 앵커는 별도 문서로 나열하지 않습니다.
+- `public/404.html`: 없는 주소가 홈페이지 HTML을 200으로 반환하는 Pages의 SPA 기본 동작을 방지합니다. 오류 페이지는 `noindex`입니다.
+- Googlebot/Yeti 이름으로 요청한 공개 홈페이지가 모두 HTTP 200을 반환하며 `X-Robots-Tag` 차단 헤더가 없음을 확인했습니다. 이는 실제 검색엔진의 수집·색인 완료를 뜻하지 않습니다.
+- 로컬의 canonical/JSON-LD/사이트맵 정합성, robots.txt·사이트맵 HTTP 응답 및 MIME 유형, 기존 신청 처리 가상 검사 7개를 확인했습니다.
+
+계정별 등록은 Google Search Console과 네이버 서치어드바이저 로그인 후 진행해야 합니다. Chrome에서 두 서비스 로그인 확인 후 Google 도메인 소유권은 DNS TXT로 확인을 완료했습니다. 네이버 소유권 확인 태그는 홈페이지 소스에 추가했습니다. 사이트맵 제출은 배포 후 진행합니다. 소유권 확인용 HTML/DNS 값은 해당 계정에서 받은 정확한 값을 사용하며 임의 값을 넣지 않습니다.
+
+배포 후 `https://yeo-baek.co.kr/robots.txt`와 `https://yeo-baek.co.kr/sitemap.xml`을 확인하고, 두 검색 도구에 `https://yeo-baek.co.kr/sitemap.xml`을 제출합니다. Google에는 도메인 속성 `yeo-baek.co.kr`을 DNS로 확인하면 HTTPS 및 www 범위를 함께 관리할 수 있습니다. 네이버에는 대표 주소 `https://yeo-baek.co.kr`을 등록합니다. 소유권 확인값은 유지해야 합니다. 검색 반영 시점이나 순위를 보장하지 않습니다.
+
+공식 안내: [Google 소유권 확인](https://support.google.com/webmasters/answer/9008080), [Google 사이트맵](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap), [네이버 사이트 등록](https://searchadvisor.naver.com/guide/faq-start-register).
 
 ## 신청 전송 설정
 
