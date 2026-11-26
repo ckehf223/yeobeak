@@ -1,5 +1,6 @@
-import { checklist, parseAnswer, questions } from '../../public/questions.js';
+import { parseAnswer, questions } from '../../public/questions.js';
 
+const privacyConsentVersion = '2026-11-26-v4';
 const sheetsScope = 'https://www.googleapis.com/auth/spreadsheets';
 const googleTokenUrl = 'https://oauth2.googleapis.com/token';
 const maxBodyBytes = 16 * 1024;
@@ -55,16 +56,16 @@ async function sendDatabase(application, env, client) {
 async function sendSpreadsheet(application, env, client, getAccessToken) {
   if (!env.GOOGLE_SHEET_ID || !env.GOOGLE_CLIENT_EMAIL || !env.GOOGLE_PRIVATE_KEY) throw new Error('configuration');
   const token = await getAccessToken(env, client);
-  const { applicationId, submittedAt, answers } = application;
+  const { applicationId, submittedAt, answers, privacyConsent } = application;
   const values = [
     applicationId, submittedAt,
     answers.directing, answers.plans.selected.join(', '), answers.plans.other,
     answers.name, answers.gender, answers.phone, answers.birthDate, answers.residence,
-    answers.location, answers.field, answers.availability, answers.referral, answers.notes,
-    ...checklist.map(([item]) => answers.checklist[item])
+    answers.location, answers.occupation, answers.field, answers.availability, answers.referral, answers.notes,
+    privacyConsent.version, privacyConsent.agreedAt
   ];
   const sheetId = encodeURIComponent(env.GOOGLE_SHEET_ID);
-  const range = encodeURIComponent(env.GOOGLE_SHEET_RANGE || "'신청'!A:T");
+  const range = encodeURIComponent(env.GOOGLE_SHEET_RANGE || "'신청'!A:R");
   const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + range +
     ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS';
   const result = await client(url, {
@@ -100,6 +101,10 @@ export async function submitApplication(request, env, { client = fetch, getAcces
     return response({ message: '신청 내용을 읽을 수 없습니다.' }, 400);
   }
 
+  if (data?.privacyConsent !== privacyConsentVersion) {
+    return response({ message: '현재 여백 체험 개인정보 수집·이용 안내를 확인하고 동의해 주세요.' }, 422);
+  }
+
   const answers = {};
   for (const question of questions) {
     const value = parseAnswer(question, data?.[question.key]);
@@ -107,9 +112,11 @@ export async function submitApplication(request, env, { client = fetch, getAcces
     answers[question.key] = value;
   }
 
+  const submittedAt = new Date().toISOString();
   const application = {
     applicationId: crypto.randomUUID(),
-    submittedAt: new Date().toISOString(),
+    submittedAt,
+    privacyConsent: { version: privacyConsentVersion, agreedAt: submittedAt },
     answers
   };
   const [db, sheet] = await Promise.allSettled([

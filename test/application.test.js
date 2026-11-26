@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { submitApplication } from '../functions/api/application.js';
 
 const requestUrl = 'https://yeobaek.example/api/application';
@@ -10,7 +11,10 @@ const env = {
   GOOGLE_CLIENT_EMAIL: 'test@example.com',
   GOOGLE_PRIVATE_KEY: 'test'
 };
+const formHtml = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+const privacyConsent = formHtml.match(/name="privacyConsent" value="([^"]+)"/)?.[1];
 const answers = {
+  privacyConsent,
   directing: '커리어',
   plans: { selected: ['여행', '기타'], other: '가상 계획' },
   name: '가상 신청자',
@@ -19,11 +23,11 @@ const answers = {
   birthDate: '2001.01.13',
   residence: '가상동',
   location: '군자',
+  occupation: '학생',
   field: '가상 분야',
   availability: '가상 일정',
   referral: 'TEST',
-  notes: '',
-  checklist: { age: 'O', residence: 'X', schoolOrWork: 'O', weeklySchedule: 'O', futurePlans: 'X' }
+  notes: ''
 };
 
 function request(body = answers) {
@@ -64,16 +68,31 @@ for (const [database, spreadsheet] of [[true, true], [true, false], [false, true
     assert.equal(status.spreadsheet, spreadsheet ? 'sent' : 'failed');
     assert.equal(db.applicationId, status.applicationId);
     assert.equal(sheet[0], status.applicationId);
-    assert.equal(sheet.length, 20);
+    assert.equal(sheet.length, 18);
+    assert.deepEqual(db.privacyConsent, { version: privacyConsent, agreedAt: db.submittedAt });
+    assert.equal(sheet[16], db.privacyConsent.version);
+    assert.equal(sheet[17], db.privacyConsent.agreedAt);
     assert.equal(db.answers.phone, '01000000000');
     assert.equal(db.answers.birthDate, '2001-01-13');
     assert.equal(sheet[7], db.answers.phone);
   });
 }
 
-test('invalid checklist stops delivery to both destinations', async () => {
+test('missing, unchecked, and outdated privacy consent stop both deliveries', async () => {
   let calls = 0;
-  const result = await submitApplication(request({ ...answers, checklist: { age: 'O' } }), env, {
+  for (const consent of [undefined, false, 'outdated']) {
+    const result = await submitApplication(request({ ...answers, privacyConsent: consent }), env, {
+      client: async () => { calls += 1; },
+      getAccessToken: async () => { calls += 1; }
+    });
+    assert.equal(result.status, 422);
+  }
+  assert.equal(calls, 0);
+});
+
+test('an invalid dropdown value stops delivery to both destinations', async () => {
+  let calls = 0;
+  const result = await submitApplication(request({ ...answers, location: '기타' }), env, {
     client: async () => { calls += 1; }
   });
   assert.equal(result.status, 422);

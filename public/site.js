@@ -23,12 +23,14 @@ promotion.addEventListener('click', (event) => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !promotion.hidden) closePromotion();
 });
-import { answerError, checklist, parseAnswer, questions } from './questions.js';
+import { answerError, parseAnswer, questionFor, questions } from './questions.js';
 
 const form = document.querySelector('#application-form');
 const panel = document.querySelector('#question-panel');
 const message = document.querySelector('#application-message');
 const submit = document.querySelector('#application-submit');
+const consent = document.querySelector('#application-consent');
+const consentError = document.querySelector('#application-consent-error');
 const result = document.querySelector('#application-result');
 let submitting = false;
 
@@ -46,18 +48,15 @@ function option(name, value, type) {
   return label;
 }
 
-function checklistFields() {
-  const group = element('div', '', { class: 'question-checklist' });
-  for (const [key, text] of checklist) {
-    const field = element('fieldset', '', { class: 'question-checklist-row' });
-    field.append(element('legend', text), option('check-' + key, 'O', 'radio'), option('check-' + key, 'X', 'radio'));
-    group.append(field);
-  }
-  return group;
+function selectField(question) {
+  const select = element('select', '', { name: question.key, id: 'answer-' + question.key });
+  select.append(element('option', '선택', { value: '', disabled: '', selected: '' }));
+  for (const value of question.options) select.append(element('option', value, { value }));
+  return select;
 }
 
 function questionFields(question) {
-  if (question.type === 'checklist') return checklistFields();
+  if (question.type === 'select') return selectField(question);
   if (question.options) {
     const group = element('div', '', { class: 'question-options' });
     const multiple = question.type === 'multiple';
@@ -84,10 +83,12 @@ function questionFields(question) {
   return input;
 }
 
+const halfWidth = ['name', 'gender', 'phone', 'birthDate', 'residence', 'location'];
+
 function renderQuestion(question) {
   const titleId = 'question-' + question.key;
   const fieldset = element('fieldset', '', {
-    class: 'question-fields', id: 'field-' + question.key, 'aria-labelledby': titleId
+    class: 'question-fields' + (halfWidth.includes(question.key) ? ' question-half' : ''), id: 'field-' + question.key, 'aria-labelledby': titleId
   });
   const label = element('legend', question.label, { id: titleId });
   if (question.required) label.append(element('span', ' *', { class: 'question-required', 'aria-label': '필수' }));
@@ -98,14 +99,15 @@ function renderQuestion(question) {
     fieldset.append(element('p', question.hint, { id: hintId, class: 'question-hint' }));
   }
   const fields = questionFields(question);
-  if (fields.matches('input, textarea')) fields.setAttribute('aria-labelledby', titleId);
+  if (fields.matches('input, textarea, select')) fields.setAttribute('aria-labelledby', titleId);
   fieldset.append(fields);
+  // Side-by-side fields keep their hint below so the inputs line up.
+  if (halfWidth.includes(question.key) && question.hint) fieldset.append(fieldset.querySelector('.question-hint'));
   return fieldset;
 }
 
 function readAnswer(question, data) {
   if (question.type === 'multiple') return { selected: data.getAll(question.key), other: data.get('plansOther') };
-  if (question.type === 'checklist') return Object.fromEntries(checklist.map(([key]) => [key, data.get('check-' + key)]));
   return data.get(question.key);
 }
 
@@ -127,6 +129,12 @@ form.addEventListener('input', (event) => {
   message.textContent = '';
 });
 
+consent.addEventListener('change', () => {
+  if (!consent.checked) return;
+  consent.removeAttribute('aria-invalid');
+  consentError.hidden = true;
+});
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (submitting) return;
@@ -137,14 +145,22 @@ form.addEventListener('submit', async (event) => {
   for (const question of questions) {
     const value = parseAnswer(question, readAnswer(question, data));
     if (value === null) {
-      message.textContent = question.label + ' ' + answerError(question);
+      message.textContent = questionFor(question, data.get('occupation')).label + ' ' + answerError(question);
       const field = document.getElementById('field-' + question.key);
       field.dataset.invalid = '';
       field.scrollIntoView({ block: 'center' });
-      field.querySelector('input:not([hidden]), textarea')?.focus({ preventScroll: true });
+      field.querySelector('input:not([hidden]), select, textarea')?.focus({ preventScroll: true });
       return;
     }
     answers[question.key] = value;
+  }
+
+  if (!consent.checked) {
+    consentError.textContent = '여백 체험 개인정보 수집·이용에 동의해 주세요.';
+    consentError.hidden = false;
+    consent.setAttribute('aria-invalid', 'true');
+    consent.focus();
+    return;
   }
 
   submitting = true;
@@ -154,7 +170,7 @@ form.addEventListener('submit', async (event) => {
     const response = await fetch(form.action, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(answers)
+      body: JSON.stringify({ ...answers, privacyConsent: consent.value })
     });
     const data = await response.json();
     if (data.applicationId) showResult(data);
@@ -176,19 +192,75 @@ function positionApplication() {
 positionApplication();
 mobileApplication.addEventListener('change', positionApplication);
 panel.append(...questions.map(renderQuestion));
+
+// The schedule question appears once a job type is chosen and is reworded for office workers.
+const schedule = questions.find((question) => question.key === 'availability');
+const scheduleField = document.querySelector('#field-availability');
+const scheduleInput = scheduleField.querySelector('input');
+let askedAsWorker = null;
+
+function updateSchedule() {
+  const occupation = new FormData(form).get('occupation');
+  scheduleField.hidden = !occupation;
+  if (!occupation) return;
+  const asked = questionFor(schedule, occupation);
+  scheduleField.querySelector('legend').firstChild.textContent = asked.label;
+  scheduleInput.placeholder = asked.placeholder || '텍스트를 입력해 주세요.';
+  // A schedule typed for one question must not be sent as the answer to the other.
+  const worker = occupation === '직장인';
+  if (askedAsWorker !== null && askedAsWorker !== worker) scheduleInput.value = '';
+  askedAsWorker = worker;
+}
+form.addEventListener('change', (event) => {
+  if (event.target.name === 'occupation') updateSchedule();
+});
+updateSchedule();
 form.hidden = false;
 
-const navigation = document.querySelector('#doz_header_wrap');
-navigation?.addEventListener('click', (event) => {
-  const link = event.target.closest('a[href^="#doz_"]');
-  if (!link) return;
-  navigation.querySelectorAll('a[href^="#doz_"]').forEach((item) => {
-    item.classList.toggle('active', item.hash === link.hash);
-  });
+// The story menu goes to the brand story; PC and mobile each have their own section.
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('a[data-url="index"]')) return;
+  const story = [...document.querySelectorAll('[data-brand-story]')].find((section) => section.getClientRects().length);
+  if (!story) return;
+  event.preventDefault();
+  story.scrollIntoView();
 });
+
+// Highlight the menu entry for the section currently on screen.
+const menuLinks = [...document.querySelectorAll('#doz_header_wrap :is(a[data-url], .nav-item a)[href^="#doz_"]')];
+const menuTargets = ['#doz_menu_20', '#doz_menu_status', '#doz_menu_info'];
+
+function updateMenu() {
+  let current = '#doz_body';
+  for (const hash of menuTargets) {
+    const target = document.querySelector(hash);
+    if (target?.getClientRects().length && target.getBoundingClientRect().top <= 180) current = hash;
+  }
+  for (const link of menuLinks) link.classList.toggle('active', link.hash === current);
+}
 
 function updateHeader() {
   document.body.classList.toggle('yeobaek-scrolled', window.scrollY >= 105);
+  updateMenu();
 }
 window.addEventListener('scroll', updateHeader, { passive: true });
 updateHeader();
+
+// Replay the original site's fade-in widgets as they scroll into view.
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      entry.target.classList.remove('yb-wait');
+      observer.unobserve(entry.target);
+    }
+  }, { rootMargin: '0px 0px -60px' });
+  for (const widget of document.querySelectorAll('#site-content [data-widget-anim^="fade"]:not(.yeobaek-application)')) {
+    if (widget.querySelector('#application')) continue;
+    widget.style.setProperty('--reveal-duration', (Number(widget.dataset.widgetAnimDuration) || 0.7) + 's');
+    widget.style.setProperty('--reveal-delay', (Number(widget.dataset.widgetAnimDelay) || 0) + 's');
+    widget.classList.add('yb-reveal', 'yb-wait');
+    if (widget.dataset.widgetAnim === 'fadeInUp') widget.classList.add('yb-up');
+    observer.observe(widget);
+  }
+}
