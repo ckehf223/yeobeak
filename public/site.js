@@ -32,6 +32,16 @@ const submit = document.querySelector('#application-submit');
 const consent = document.querySelector('#application-consent');
 const consentError = document.querySelector('#application-consent-error');
 const result = document.querySelector('#application-result');
+const previewApplication = form.hasAttribute('data-preview');
+document.querySelector('#application-preview-notice').hidden = !previewApplication;
+if (previewApplication) {
+  form.autocomplete = 'off';
+  const consentFieldset = consent.closest('fieldset');
+  consentFieldset.disabled = true;
+  consentFieldset.hidden = true;
+  for (const note of document.querySelectorAll('[data-live-application-only]')) note.hidden = true;
+  submit.textContent = '작성 완료';
+}
 let submitting = false;
 
 function element(tag, text, attributes = {}) {
@@ -75,7 +85,7 @@ function questionFields(question) {
   }
 
   const attrs = { name: question.key, id: 'answer-' + question.key, placeholder: question.placeholder || '텍스트를 입력해 주세요.', maxlength: question.limit };
-  if (question.autocomplete) attrs.autocomplete = question.autocomplete;
+  if (!previewApplication && question.autocomplete) attrs.autocomplete = question.autocomplete;
   if (question.inputMode) attrs.inputmode = question.inputMode;
   const input = question.type === 'textarea'
     ? element('textarea', '', { ...attrs, rows: '5' })
@@ -93,7 +103,8 @@ function renderQuestion(question) {
   const label = element('legend', question.label, { id: titleId });
   if (question.required) label.append(element('span', ' *', { class: 'question-required', 'aria-label': '필수' }));
   fieldset.append(label);
-  if (question.hint) {
+  const showHint = question.hint && !(previewApplication && ['birthDate', 'residence'].includes(question.key));
+  if (showHint) {
     const hintId = 'hint-' + question.key;
     fieldset.setAttribute('aria-describedby', hintId);
     fieldset.append(element('p', question.hint, { id: hintId, class: 'question-hint' }));
@@ -102,7 +113,7 @@ function renderQuestion(question) {
   if (fields.matches('input, textarea, select')) fields.setAttribute('aria-labelledby', titleId);
   fieldset.append(fields);
   // Side-by-side fields keep their hint below so the inputs line up.
-  if (halfWidth.includes(question.key) && question.hint) fieldset.append(fieldset.querySelector('.question-hint'));
+  if (halfWidth.includes(question.key) && showHint) fieldset.append(fieldset.querySelector('.question-hint'));
   return fieldset;
 }
 
@@ -111,15 +122,21 @@ function readAnswer(question, data) {
   return data.get(question.key);
 }
 
-function showResult(data) {
-  const db = data.database === 'sent';
-  const sheet = data.spreadsheet === 'sent';
-  const both = db && sheet;
-  result.querySelector('h3').textContent = both ? '신청이 접수되었습니다' : db || sheet ? '일부 전송이 완료되었습니다' : '전송에 실패했습니다';
-  result.querySelector('p').textContent = '접수번호 ' + data.applicationId + ' · DB ' + (db ? '전송 완료' : '전송 실패') + ' · 스프레드시트 ' + (sheet ? '전송 완료' : '전송 실패');
+function showResult(title, description) {
+  result.querySelector('h3').textContent = title;
+  result.querySelector('p').textContent = description;
   form.hidden = true;
   result.hidden = false;
   result.focus();
+}
+
+function showSubmissionResult(data) {
+  const db = data.database === 'sent';
+  const sheet = data.spreadsheet === 'sent';
+  const both = db && sheet;
+  const title = both ? '신청이 접수되었습니다' : db || sheet ? '일부 전송이 완료되었습니다' : '전송에 실패했습니다';
+  const description = '접수번호 ' + data.applicationId + ' · DB ' + (db ? '전송 완료' : '전송 실패') + ' · 스프레드시트 ' + (sheet ? '전송 완료' : '전송 실패');
+  showResult(title, description);
 }
 
 form.addEventListener('input', (event) => {
@@ -155,6 +172,12 @@ form.addEventListener('submit', async (event) => {
     answers[question.key] = value;
   }
 
+  if (previewApplication) {
+    form.reset();
+    showResult('신청서 작성이 완료되었습니다', '입력한 내용은 전송되거나 저장되지 않았습니다. 정식 접수가 열리면 다시 신청해 주세요.');
+    return;
+  }
+
   if (!consent.checked) {
     consentError.textContent = '여백 체험 개인정보 수집·이용에 동의해 주세요.';
     consentError.hidden = false;
@@ -173,7 +196,7 @@ form.addEventListener('submit', async (event) => {
       body: JSON.stringify({ ...answers, privacyConsent: consent.value })
     });
     const data = await response.json();
-    if (data.applicationId) showResult(data);
+    if (data.applicationId) showSubmissionResult(data);
     else message.textContent = data.message || '전송 결과를 확인할 수 없습니다.';
   } catch {
     message.textContent = '연결이 끊겨 전송 결과를 확인할 수 없습니다.';
