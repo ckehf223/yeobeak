@@ -40,7 +40,6 @@ if (previewApplication) {
   consentFieldset.disabled = true;
   consentFieldset.hidden = true;
   for (const note of document.querySelectorAll('[data-live-application-only]')) note.hidden = true;
-  submit.textContent = '작성 완료';
 }
 let submitting = false;
 
@@ -122,9 +121,11 @@ function readAnswer(question, data) {
   return data.get(question.key);
 }
 
-function showResult(title, description) {
+function showResult(title, description = '') {
   result.querySelector('h3').textContent = title;
-  result.querySelector('p').textContent = description;
+  const detail = result.querySelector('p');
+  detail.textContent = description;
+  detail.hidden = !description;
   form.hidden = true;
   result.hidden = false;
   result.focus();
@@ -174,7 +175,7 @@ form.addEventListener('submit', async (event) => {
 
   if (previewApplication) {
     form.reset();
-    showResult('신청서 작성이 완료되었습니다', '입력한 내용은 전송되거나 저장되지 않았습니다. 정식 접수가 열리면 다시 신청해 주세요.');
+    showResult('신청완료 되었습니다.');
     return;
   }
 
