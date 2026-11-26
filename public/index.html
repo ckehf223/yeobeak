@@ -720,7 +720,6 @@
     <p class="application-eyebrow" aria-hidden="true">YEOBAEK EXPERIENCE</p>
     <h2 id="application-title">여백 체험 신청서</h2>
     <p class="application-lead">덜어낸 자리에 나를 담는 시간, 당신의 이야기를 들려주세요.</p>
-    <p id="application-preview-notice" class="application-lead">현재 체험 접수를 준비 중입니다. 예시 정보로 신청서를 작성해 볼 수 있으며, 입력 내용은 전송하거나 저장하지 않습니다.</p>
   </header>
   <noscript><p>신청서를 작성하려면 브라우저에서 JavaScript를 켜 주세요.</p></noscript>
   <form id="application-form" action="/api/application" method="post" data-preview novalidate hidden>
@@ -749,6 +748,7 @@
     </div>
     <div class="application-footer">
       <p id="application-message" aria-live="polite" role="status"></p>
+      <p id="application-preview-notice" hidden>예시 정보로 작성해 주세요. 입력 내용은 전송하거나 저장하지 않습니다.</p>
       <div class="application-actions"><button type="submit" id="application-submit">신청</button></div>
     </div>
   </form>
