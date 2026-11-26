@@ -1,10 +1,12 @@
 # 여백 홈페이지
 
-[기존 여백 홈페이지](https://www.yeo-baek.com/)를 기준으로 스토리, 키트 소개, 이벤트 후기, 체험 안내와 모집 팝업을 옮겼습니다. [기존 스모어 신청서](https://smore.im/form/88GCdwu89e)의 13개 문항은 홈페이지 안의 체험신청서에서 작성합니다.
+[기존 여백 홈페이지](https://www.yeo-baek.com/)를 기준으로 스토리, 키트 소개, 이벤트 후기, 체험 안내와 모집 팝업을 옮겼습니다. [기존 스모어 신청서](https://smore.im/form/88GCdwu89e)의 13개 문항은 원본 체험 안내 구역의 신청서에 한 화면으로 표시합니다.
 
 ## 로컬에서 확인
 
-Node.js 22 이상에서 다음 명령을 실행하고 화면에 나온 주소를 엽니다. 설치할 패키지는 없습니다.
+VS Code Live Server에서는 `public/index.html`을 우클릭해 **Open with Live Server**를 선택합니다. 저장소 전체를 연 경우 브라우저 주소 경로는 `/public/index.html`입니다.
+
+Node.js 22 이상에서는 다음 명령을 실행하고 화면에 나온 주소를 열어도 됩니다. 설치할 패키지는 없습니다.
 
 ```powershell
 npm run dev

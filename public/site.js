@@ -28,13 +28,8 @@ import { answerError, checklist, parseAnswer, questions } from './questions.js';
 const form = document.querySelector('#application-form');
 const panel = document.querySelector('#question-panel');
 const message = document.querySelector('#application-message');
-const progress = form.querySelector('progress');
-const counter = document.querySelector('#question-count');
-const back = document.querySelector('#application-back');
-const next = document.querySelector('#application-next');
+const submit = document.querySelector('#application-submit');
 const result = document.querySelector('#application-result');
-const answers = {};
-let step = 0;
 let submitting = false;
 
 function element(tag, text, attributes = {}) {
@@ -44,37 +39,34 @@ function element(tag, text, attributes = {}) {
   return item;
 }
 
-function option(name, value, type, checked) {
+function option(name, value, type) {
   const label = element('label', '', { class: 'question-option' });
   const input = element('input', '', { name, value, type });
-  input.checked = checked;
   label.append(input, document.createTextNode(value));
   return label;
 }
 
-function checklistFields(current) {
+function checklistFields() {
   const group = element('div', '', { class: 'question-checklist' });
   for (const [key, text] of checklist) {
     const field = element('fieldset', '', { class: 'question-checklist-row' });
-    field.append(element('legend', text), option(key, 'O', 'radio', current?.[key] === 'O'), option(key, 'X', 'radio', current?.[key] === 'X'));
+    field.append(element('legend', text), option('check-' + key, 'O', 'radio'), option('check-' + key, 'X', 'radio'));
     group.append(field);
   }
   return group;
 }
 
-function questionFields(question, current) {
-  if (question.type === 'checklist') return checklistFields(current);
+function questionFields(question) {
+  if (question.type === 'checklist') return checklistFields();
   if (question.options) {
     const group = element('div', '', { class: 'question-options' });
     const multiple = question.type === 'multiple';
     for (const value of question.options) {
-      const checked = multiple ? Boolean(current?.selected.includes(value)) : current === value;
-      group.append(option(question.key, value, multiple ? 'checkbox' : 'radio', checked));
+      group.append(option(question.key, value, multiple ? 'checkbox' : 'radio'));
     }
     if (multiple) {
       const other = element('input', '', { name: 'plansOther', type: 'text', maxlength: '400', placeholder: '기타', 'aria-label': '기타 계획' });
-      other.hidden = !current?.selected.includes('기타');
-      other.value = current?.other || '';
+      other.hidden = true;
       group.append(other);
       group.addEventListener('change', (event) => {
         if (event.target.name === 'plans' && event.target.value === '기타') other.hidden = !event.target.checked;
@@ -89,46 +81,33 @@ function questionFields(question, current) {
   const input = question.type === 'textarea'
     ? element('textarea', '', { ...attrs, rows: '5' })
     : element('input', '', { ...attrs, type: question.type });
-  input.value = current || '';
   return input;
 }
 
-function showQuestion(focus = true) {
-  const question = questions[step];
-  const heading = element('legend', 'Q' + (step + 1) + '. ' + question.label, { tabindex: '-1', id: 'question-heading' });
-  const fieldset = element('fieldset', '', { class: 'question-fields', 'aria-labelledby': heading.id });
-  fieldset.append(heading);
+function renderQuestion(question) {
+  const titleId = 'question-' + question.key;
+  const fieldset = element('fieldset', '', {
+    class: 'question-fields', id: 'field-' + question.key, 'aria-labelledby': titleId
+  });
+  const label = element('legend', question.label, { id: titleId });
+  if (question.required) label.append(element('span', ' *', { class: 'question-required', 'aria-label': '필수' }));
+  fieldset.append(label);
   if (question.hint) {
-    fieldset.setAttribute('aria-describedby', 'question-hint');
-    fieldset.append(element('p', question.hint, { id: 'question-hint' }));
+    const hintId = 'hint-' + question.key;
+    fieldset.setAttribute('aria-describedby', hintId);
+    fieldset.append(element('p', question.hint, { id: hintId, class: 'question-hint' }));
   }
-  const fields = questionFields(question, answers[question.key]);
-  if (fields.matches('input, textarea')) fields.setAttribute('aria-labelledby', heading.id);
+  const fields = questionFields(question);
+  if (fields.matches('input, textarea')) fields.setAttribute('aria-labelledby', titleId);
   fieldset.append(fields);
-  panel.replaceChildren(fieldset);
-  progress.value = step + 1;
-  counter.textContent = (step + 1) + ' / ' + questions.length;
-  back.hidden = step === 0;
-  next.textContent = step === questions.length - 1 ? '제출완료' : '다음';
-  message.textContent = '';
-  if (focus) heading.focus({ preventScroll: true });
+  return fieldset;
 }
 
-function currentAnswer(question) {
-  const data = new FormData(form);
+function readAnswer(question, data) {
   if (question.type === 'multiple') return { selected: data.getAll(question.key), other: data.get('plansOther') };
-  if (question.type === 'checklist') return Object.fromEntries(checklist.map(([key]) => [key, data.get(key)]));
+  if (question.type === 'checklist') return Object.fromEntries(checklist.map(([key]) => [key, data.get('check-' + key)]));
   return data.get(question.key);
 }
-
-back.addEventListener('click', () => {
-  if (submitting || step === 0) return;
-  const question = questions[step];
-  const current = currentAnswer(question);
-  answers[question.key] = current;
-  step -= 1;
-  showQuestion();
-});
 
 function showResult(data) {
   const db = data.database === 'sent';
@@ -141,27 +120,35 @@ function showResult(data) {
   result.focus();
 }
 
+form.addEventListener('input', (event) => {
+  const field = event.target.closest('.question-fields[data-invalid]');
+  if (!field) return;
+  field.removeAttribute('data-invalid');
+  message.textContent = '';
+});
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (submitting) return;
 
-  const question = questions[step];
-  const value = parseAnswer(question, currentAnswer(question));
-  if (value === null) {
-    message.textContent = answerError(question);
-    panel.querySelector('input:not([hidden]), textarea')?.focus();
-    return;
-  }
-  answers[question.key] = value;
-  if (step < questions.length - 1) {
-    step += 1;
-    showQuestion();
-    return;
+  const data = new FormData(form);
+  const answers = {};
+  panel.querySelectorAll('[data-invalid]').forEach((field) => field.removeAttribute('data-invalid'));
+  for (const question of questions) {
+    const value = parseAnswer(question, readAnswer(question, data));
+    if (value === null) {
+      message.textContent = question.label + ' ' + answerError(question);
+      const field = document.getElementById('field-' + question.key);
+      field.dataset.invalid = '';
+      field.scrollIntoView({ block: 'center' });
+      field.querySelector('input:not([hidden]), textarea')?.focus({ preventScroll: true });
+      return;
+    }
+    answers[question.key] = value;
   }
 
   submitting = true;
-  next.disabled = true;
-  back.disabled = true;
+  submit.disabled = true;
   message.textContent = '신청을 전송하고 있습니다.';
   try {
     const response = await fetch(form.action, {
@@ -176,13 +163,20 @@ form.addEventListener('submit', async (event) => {
     message.textContent = '연결이 끊겨 전송 결과를 확인할 수 없습니다.';
   } finally {
     submitting = false;
-    next.disabled = false;
-    back.disabled = false;
+    submit.disabled = false;
   }
 });
 
+const application = document.querySelector('#application');
+const mobileApplication = window.matchMedia('(max-width: 991px)');
+function positionApplication() {
+  const slot = document.getElementById(mobileApplication.matches ? 'application-mobile-slot' : 'application-desktop-slot');
+  if (application.parentElement !== slot) slot.append(application);
+}
+positionApplication();
+mobileApplication.addEventListener('change', positionApplication);
+panel.append(...questions.map(renderQuestion));
 form.hidden = false;
-showQuestion(false);
 
 const navigation = document.querySelector('#doz_header_wrap');
 navigation?.addEventListener('click', (event) => {
