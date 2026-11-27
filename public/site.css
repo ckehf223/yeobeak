@@ -143,10 +143,6 @@ body { margin: 0; }
 .application [data-invalid] :is(input[type=text], input[type=tel], textarea, select, .question-option) { border-color: #c0695f; }
 .application #application-message { margin: 0; font-size: 14px; text-align: center; color: #862e25; }
 .application #application-message:not(:empty) { padding-bottom: 10px; }
-.application #application-preview-notice {
-  margin: 0 0 10px; color: var(--muted); text-align: center;
-  font-size: 14px; line-height: 1.5;
-}
 
 .application .application-consent { margin: 28px 0 0; padding: 0; border: 0; min-width: 0; }
 .application .consent-scroll {

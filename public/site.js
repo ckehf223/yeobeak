@@ -33,12 +33,8 @@ const consent = document.querySelector('#application-consent');
 const consentError = document.querySelector('#application-consent-error');
 const result = document.querySelector('#application-result');
 const previewApplication = form.hasAttribute('data-preview');
-document.querySelector('#application-preview-notice').hidden = !previewApplication;
 if (previewApplication) {
   form.autocomplete = 'off';
-  const consentFieldset = consent.closest('fieldset');
-  consentFieldset.disabled = true;
-  consentFieldset.hidden = true;
   for (const note of document.querySelectorAll('[data-live-application-only]')) note.hidden = true;
 }
 let submitting = false;
@@ -173,17 +169,17 @@ form.addEventListener('submit', async (event) => {
     answers[question.key] = value;
   }
 
-  if (previewApplication) {
-    form.reset();
-    showResult('신청완료 되었습니다.');
-    return;
-  }
-
   if (!consent.checked) {
     consentError.textContent = '여백 체험 개인정보 수집·이용에 동의해 주세요.';
     consentError.hidden = false;
     consent.setAttribute('aria-invalid', 'true');
     consent.focus();
+    return;
+  }
+
+  if (previewApplication) {
+    form.reset();
+    showResult('신청완료 되었습니다.');
     return;
   }
 
